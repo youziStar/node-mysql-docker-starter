@@ -1,0 +1,42 @@
+version: '3.8'  # 指定 Docker Compose 文件的版本
+
+services:
+  mysql:  # 定义名为 mysql 的服务
+    image: mysql:8.0  # 使用 MySQL 8.0 镜像
+    environment:  # 设置环境变量
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}  # MySQL 根用户密码
+      MYSQL_DATABASE: ${MYSQL_DATABASE}  # 初始化数据库名称
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # 将本地 init.sql 文件挂载到容器中以初始化数据库
+      - ./mysql-data:/var/lib/mysql  # 新增数据持久化挂载
+    networks:
+      - my-network  # 将 mysql 服务连接到 my-network 网络
+    ports:
+      - "3306:3306"  # 将主机的 3306 端口映射到容器的 3306 端口
+    healthcheck:  # 配置健康检查
+      test: ["CMD", "mysqladmin", "ping", "-p${MYSQL_ROOT_PASSWORD}"]  # 使用 mysqladmin ping 命令检查 MySQL 服务是否健康
+      interval: 5s  # 每 5 秒检查一次
+      timeout: 3s  # 每次检查的超时时间为 3 秒
+      retries: 10  # 尝试 10 次后认为服务不健康
+      start_period: 40s  # 在容器启动后的 40 秒内不进行健康检查，以便 MySQL 有足够时间启动
+
+  node-app:  # 定义名为 node-app 的服务
+    build: .  # 使用当前目录中的 Dockerfile 构建镜像
+    volumes:
+      - ./app:/app        # 映射本地代码目录
+      - /app/node_modules  # 保持容器内依赖隔离
+    depends_on:
+      mysql:
+        condition: service_healthy  # 等待 mysql 服务健康检查通过后再启动 node-app
+    environment:  # 设置环境变量
+      - MYSQL_HOST=${MYSQL_HOST}  # MySQL 主机名
+      - MYSQL_USER=${MYSQL_USER}  # MySQL 用户名
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}  # MySQL 密码
+      - MYSQL_DB=${MYSQL_DB}  # MySQL 数据库名称
+      - NODE_ENV=${NODE_ENV}
+    command: npm run dev   # 使用开发模式命令
+    networks:
+      - my-network  # 将 node-app 服务连接到 my-network 网络
+networks:
+  my-network:  # 定义名为 my-network 的网络
+    driver: bridge  # 使用 bridge 网络驱动

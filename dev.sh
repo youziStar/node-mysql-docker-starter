@@ -9,6 +9,7 @@ function run() {
     docker compose -f ./docker-compose.yml up --build -d
 
     echo -e "\n\033[32m✅ 开发环境已就绪！\033[0m"
+    echo -e "查看运行中容器：\ndocker ps"
     echo -e "监控日志命令：\ndocker-compose logs -f node_app"
 }
 
